@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "officegrep",
   "display_name": "officegrep",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Full-text search inside Word, PowerPoint, Excel and PDF files, with paragraph/slide/cell/page locators.",
   "long_description": "officegrep extracts text from local .docx, .pptx, .xlsx, .pdf and plain-text files into a single SQLite FTS5 index and exposes it to the agent as three tools: search_docs, list_docs and index_folder. Every hit carries a human-readable locator so the agent knows where the text lives. The index is local, incremental and works offline; CJK and Latin text are matched with the same trigram tokenizer, no embedding service required.",
   "author": {
@@ -39,7 +39,16 @@
       "description": "Build or refresh the index for a folder or file (incremental)."
     }
   ],
-  "keywords": ["search", "documents", "docx", "xlsx", "pptx", "pdf", "full-text", "offline"],
+  "keywords": [
+    "search",
+    "documents",
+    "docx",
+    "xlsx",
+    "pptx",
+    "pdf",
+    "full-text",
+    "offline"
+  ],
   "license": "MIT",
   "user_config": {
     "db_path": {
@@ -51,7 +60,11 @@
     }
   },
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"],
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
     "runtimes": {
       "python": ">=3.9.0 <4"
     }

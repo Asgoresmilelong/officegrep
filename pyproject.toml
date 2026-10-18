@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "officegrep"
-version = "0.1.1"
+version = "0.1.2"
 description = "Full-text search inside Word, PowerPoint, Excel and PDF, served to agents over MCP"
 readme = "README.md"
 requires-python = ">=3.9"

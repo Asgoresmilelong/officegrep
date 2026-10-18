@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -189,6 +190,84 @@ class TestMcp(Base):
         lines = [json.loads(line) for line in stdout.getvalue().splitlines()]
         self.assertEqual(len(lines), 2)
         self.assertEqual(lines[1]["id"], 2)
+
+
+class TestWatch(Base):
+    def _watcher(self, index):
+        from officegrep.watch import Watcher
+
+        return Watcher(index, [self.root])
+
+    def test_new_file_is_indexed(self):
+        with Index(self.root / "w.db") as index:
+            watcher = self._watcher(index)
+            self.make_txt("新文件.md")
+            stats = watcher.poll()
+            self.assertEqual(stats["changed"], 1)
+            self.assertTrue(index.search("挠度"))
+
+    def test_modified_file_is_reindexed(self):
+        with Index(self.root / "w.db") as index:
+            path = self.make_txt("改.md")
+            watcher = self._watcher(index)
+            watcher.poll()
+            path.write_text("换成了风荷载校核的内容", encoding="utf-8")
+            stats = watcher.poll()
+            self.assertEqual(stats["changed"], 1)
+            self.assertTrue(index.search("风荷载"))
+
+    def test_deleted_file_is_pruned(self):
+        with Index(self.root / "w.db") as index:
+            path = self.make_txt("删.md")
+            watcher = self._watcher(index)
+            watcher.poll()
+            path.unlink()
+            stats = watcher.poll()
+            self.assertEqual(stats["removed"], 1)
+            self.assertEqual(index.search("弯矩"), [])
+
+    def test_unchanged_scan_is_cheap(self):
+        with Index(self.root / "w.db") as index:
+            self.make_txt("稳.md")
+            watcher = self._watcher(index)
+            self.assertEqual(watcher.poll()["changed"], 1)
+            self.assertEqual(watcher.poll()["changed"], 0)
+
+    def test_wal_allows_concurrent_writer_and_reader(self):
+        """模拟两个进程：watch 写、MCP 读。"""
+        db = self.root / "c.db"
+        reader = Index(db)
+        self.addCleanup(reader.close)
+
+        paths = []
+        for i in range(12):
+            p = self.root / f"并发{i}.md"
+            p.write_text(f"第 {i} 份文档，包含关键字 挠度 与 风荷载。", encoding="utf-8")
+            paths.append(p)
+
+        errors = []
+
+        def write_all():
+            writer = Index(db)  # 连接必须在本线程创建
+            try:
+                for p in paths:
+                    writer.add_file(p)
+            except Exception as exc:  # pragma: no cover
+                errors.append(exc)
+            finally:
+                writer.close()
+
+        thread = threading.Thread(target=write_all)
+        thread.start()
+        while thread.is_alive():
+            try:
+                reader.search("挠度", limit=5)
+            except Exception as exc:  # pragma: no cover
+                errors.append(exc)
+                break
+        thread.join()
+        self.assertEqual(errors, [])
+        self.assertTrue(reader.search("风荷载", limit=20))
 
 
 class TestCli(Base):

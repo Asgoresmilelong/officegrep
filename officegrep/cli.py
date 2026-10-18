@@ -11,6 +11,7 @@ from pathlib import Path
 from . import __version__
 from .index import Index
 from .mcp import Server
+from .watch import Watcher, parse_roots
 
 
 def default_db() -> Path:
@@ -35,6 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("stats", help="索引统计")
     sub.add_parser("mcp", help="以 MCP 服务器方式运行（stdio）")
+
+    p_watch = sub.add_parser("watch", help="监听目录变化并增量更新索引")
+    p_watch.add_argument("paths", nargs="+", help="目录或文件")
+    p_watch.add_argument("--interval", type=float, default=2.0, help="轮询间隔（秒）")
+    p_watch.add_argument("--once", action="store_true", help="只扫描一次后退出")
     return parser
 
 
@@ -72,7 +78,28 @@ def cmd_stats(index: Index, _args) -> int:
     return 0
 
 
+def cmd_watch(index: Index, args) -> int:
+    def report(kind: str, path: Path, note: str = "") -> None:
+        print(f"[{kind}] {path} {note}".rstrip(), file=sys.stderr)
+
+    watcher = Watcher(index, args.paths, interval=args.interval, on_change=report)
+    if args.once:
+        stats = watcher.poll()
+        print(f"扫描一次：更新 {stats['changed']} · 删除 {stats['removed']} · 失败 {stats['failed']}")
+        return 0
+    print(f"监听中（每 {watcher.interval}s）：{', '.join(str(r) for r in watcher.roots)}", file=sys.stderr)
+    try:
+        watcher.run()
+    except KeyboardInterrupt:
+        print("已停止", file=sys.stderr)
+    return 0
+
+
 def cmd_mcp(index: Index, _args) -> int:
+    roots = parse_roots(os.environ.get("OFFICEGREP_WATCH"))
+    if roots:
+        Watcher(index, roots).start_background()
+        print(f"watch: {', '.join(roots)}", file=sys.stderr)
     print(f"officegrep MCP server · db={index.db_path}", file=sys.stderr)
     Server(index).serve()
     return 0
@@ -82,7 +109,13 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     index = Index(args.db)
     try:
-        handlers = {"index": cmd_index, "search": cmd_search, "stats": cmd_stats, "mcp": cmd_mcp}
+        handlers = {
+            "index": cmd_index,
+            "search": cmd_search,
+            "stats": cmd_stats,
+            "mcp": cmd_mcp,
+            "watch": cmd_watch,
+        }
         return handlers[args.command](index, args)
     finally:
         index.close()

@@ -69,6 +69,10 @@ class Index:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.db_path)
         self.conn.executescript(SCHEMA)
+        # WAL + busy_timeout：允许一个进程在写、另一个在读，
+        # 否则 watch 与 MCP 服务同时跑会撞 database is locked。
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA busy_timeout=5000")
         self.conn.commit()
 
     # ---------------------------------------------------------- 写入

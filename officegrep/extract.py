@@ -164,10 +164,12 @@ def _read_text(path: Path) -> str:
     raw = path.read_bytes()
     for enc in ("utf-8", "gb18030", "utf-16"):
         try:
-            return raw.decode(enc)
+            # 去 BOM：Windows 编辑器（含 PowerShell 的 Set-Content）常写入 UTF-8 BOM，
+            # 留着会让首个词带 \ufeff，既影响检索也污染片段。
+            return raw.decode(enc).lstrip("\ufeff")
         except UnicodeDecodeError:
             continue
-    return raw.decode("utf-8", errors="replace")
+    return raw.decode("utf-8", errors="replace").lstrip("\ufeff")
 
 
 def _plain(path: Path) -> list[Block]:

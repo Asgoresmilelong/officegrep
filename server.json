@@ -3,7 +3,7 @@
   "name": "io.github.Asgoresmilelong/officegrep",
   "title": "officegrep",
   "description": "Full-text search inside Word, PPT, Excel and PDF files, with precise locators.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "repository": {
     "url": "https://github.com/Asgoresmilelong/officegrep",
     "source": "github"
@@ -11,8 +11,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/Asgoresmilelong/officegrep/releases/download/v0.1.1/officegrep-0.1.1.mcpb",
-      "fileSha256": "1a73f34b129b384b3b47a9f71e485479b43334535734d06c6373ad77ed5da45b",
+      "identifier": "https://github.com/Asgoresmilelong/officegrep/releases/download/v0.1.2/officegrep-0.1.2.mcpb",
+      "fileSha256": "c213093b6c284dcb16d38200f2c11289814c68fbbd197649c1b1cdaa616c6885",
       "transport": {
         "type": "stdio"
       }

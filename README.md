@@ -54,6 +54,21 @@ officegrep stats
 
 The index lives in `~/.officegrep/index.db`; override with `--db` or `OFFICEGREP_DB`.
 
+## Stay in sync
+
+```bash
+officegrep watch ~/Documents           # re-index on change: 2s poll, no extra dependency
+officegrep watch ~/Documents --once    # single sync pass (cron / CI friendly)
+```
+
+Or let the MCP server watch in the background:
+
+```bash
+OFFICEGREP_WATCH="~/Documents;~/Downloads" officegrep mcp
+```
+
+The index runs in WAL mode, so a `watch` process and an MCP server can share one database file concurrently — something that fails with `database is locked` on a default rollback journal.
+
 ## MCP server
 
 ```bash
