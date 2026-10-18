@@ -1,53 +1,62 @@
 # officegrep
 
-**让 agent 搜得进 Word / PPT / Excel / PDF。** grep 看不见这些文件里的字，`officegrep` 把它们抽成文本块、建本地 SQLite 全文索引，再通过 MCP 交给任意 agent。
+[![ci](https://github.com/Asgoresmilelong/officegrep/actions/workflows/ci.yml/badge.svg)](https://github.com/Asgoresmilelong/officegrep/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
+[![MCP](https://img.shields.io/badge/MCP-server-8A2BE2.svg)](https://modelcontextprotocol.io)
+
+**Full-text search inside Word, PowerPoint, Excel and PDF — for agents.**
+
+`grep` cannot see a single character inside a `.docx`. `officegrep` extracts the text, indexes it into one SQLite file, and hands it to any agent over MCP.
 
 ```
-$ officegrep search "弯矩"
+$ officegrep search "bending moment"
 
-找到 3 条：
+Found 3 hits:
 
-F:\报告\复合材料电线杆.docx  [table p 89]
-  检验[弯矩]定义（荷载点距梢端 0.25 m）；挠度限值；承载力检验弯矩 = 2 倍标准检验弯矩 …
+F:\reports\pole-design.docx  [table p 89]
+  design bending moment (load point 0.25 m from tip); deflection limit; test moment = 2× …
 
-F:\notes\fuhe-pole.md  [line 32]
-  …1618 mm 仍能过关（利用率 81%）。**承载力检验[弯矩] = 2×标准检验弯矩** …
+F:\notes\composites.md  [line 32]
+  … utilization 81%. **test bending moment = 2× the standard test moment** …
 ```
 
-## 为什么
+中文说明：[README.zh-CN.md](README.zh-CN.md)
 
-- `grep` / `ripgrep` 只能读纯文本，`.docx` 是 zip+XML，`.xlsx` 是共享字符串表，`.pdf` 是压缩流；
-- 通用 RAG 需要 embedding 服务、向量库、联网，重；
-- 这个只需要一个 SQLite 文件：离线、增量、毫秒级。
+## Why
 
-## 安装
+- `grep` / `ripgrep` only read plain text. `.docx` is a zip of XML, `.xlsx` keeps strings in a shared table, `.pdf` is a compressed stream.
+- Generic RAG needs an embedding service, a vector store, and a network round-trip.
+- This needs one SQLite file: offline, incremental, milliseconds.
+
+## Install
 
 ```bash
 pip install git+https://github.com/Asgoresmilelong/officegrep
-# PDF 支持（可选）
-pip install "git+https://github.com/Asgoresmilelong/officegrep#egg=officegrep[pdf]"
+# optional PDF support
+pip install "officegrep[pdf] @ git+https://github.com/Asgoresmilelong/officegrep"
 ```
 
-只依赖 `lxml` 和 `openpyxl`；PDF 需要可选的 `pypdf`。
+Runtime deps: `lxml`, `openpyxl`. PDF needs optional `pypdf`.
 
-## 用法
+## CLI
 
 ```bash
-officegrep index ~/Documents ~/Downloads        # 建/更新索引（增量）
-officegrep search "岛礁" --limit 5               # 检索
-officegrep search "风荷载" --under ~/Documents   # 限定目录
-officegrep stats                                 # 索引统计
+officegrep index ~/Documents ~/Downloads     # build / update (incremental)
+officegrep search "island reef" --limit 5
+officegrep search "wind load" --under ~/Documents
+officegrep stats
 ```
 
-索引默认存在 `~/.officegrep/index.db`，可用 `--db` 或环境变量 `OFFICEGREP_DB` 改。
+The index lives in `~/.officegrep/index.db`; override with `--db` or `OFFICEGREP_DB`.
 
-## 接 agent（MCP）
+## MCP server
 
 ```bash
 officegrep mcp
 ```
 
-Claude Desktop / Cursor / Codex 等客户端配置：
+Client config (Claude Desktop / Cursor / Codex / any MCP host):
 
 ```json
 {
@@ -60,45 +69,43 @@ Claude Desktop / Cursor / Codex 等客户端配置：
 }
 ```
 
-三个工具：
-
-| 工具 | 用途 |
+| Tool | What it does |
 |---|---|
-| `search_docs` | 全文检索，返回路径 + 定位符（`p 42` / `slide 3` / `材料!12` / `page 7`）+ 片段 |
-| `list_docs` | 列出已索引文件与文本块数 |
-| `index_folder` | 建/更新索引（增量） |
+| `search_docs` | Full-text search → file path, locator (`p 42`, `slide 3`, `Sheet1!12`, `page 7`), highlighted snippet |
+| `list_docs` | Indexed files with block counts |
+| `index_folder` | Build / refresh the index (incremental) |
 
-协议实现是手写的 JSON-RPC over stdio，零 SDK 依赖。
+The protocol is a hand-written JSON-RPC over stdio — no MCP SDK dependency.
 
-## 实现
+## How it works
 
 ```
-docx/pptx  →  zipfile + lxml 直接读 XML（段落、幻灯片、表格）
-xlsx       →  openpyxl（read_only）
-pdf        →  pypdf（可选）
-txt/md     →  按行分块，保留行号
+docx / pptx  →  zipfile + lxml, read the XML directly
+xlsx         →  openpyxl (read_only)
+pdf          →  pypdf (optional)
+txt / md     →  line chunks, line numbers kept
 ```
 
-- 每个块带**人类可读定位符**，因为 agent 拿到结果后的第一个问题是「在哪儿」；
-- 索引用 SQLite **FTS5 `trigram`** tokenizer：中英文都能子串匹配，不依赖分词器；
-- 查询 ≥3 字符走 FTS5 + `bm25()` 排序；1–2 字符（中文最常见）FTS5 无法命中，回退到扫描并按**命中次数**排序；
-- 增量：先比 `(size, mtime)`，不同再算 SHA-1，避免重复解析。
+- Every block carries a **human-readable locator**, because the first question an agent asks is "where?".
+- The index uses SQLite **FTS5 with the `trigram` tokenizer**: substring matching for both CJK and Latin text, no word segmenter required, ranked by `bm25()`.
+- Queries of 1–2 characters cannot match trigrams, so they fall back to a scan ranked by hit count (CJK queries are frequently two characters).
+- Incremental: compare `(size, mtime)` first, hash with SHA-1 only when they differ.
 
-实测（一份真实工程语料）：
+Benchmark on a real engineering corpus:
 
-| 指标 | 值 |
+| Metric | Value |
 |---|---|
-| 文件 | 43 个（docx / pptx / xlsx / md，含 8.6 MB 的 PPT） |
-| 文本块 | 2260 |
-| 首次索引 | 2.16 s |
-| 数据库 | 1.9 MiB |
+| Files | 43 (docx / pptx / xlsx / md, incl. an 8.6 MB deck) |
+| Text blocks | 2,260 |
+| First index | 2.16 s |
+| Database | 1.9 MiB |
 
-## 局限
+## Limits
 
-- 不解析扫描版 PDF（需要 OCR）；
-- 是**字面检索**，不是语义检索——"杆塔"搜不到"电杆"，除非两者都出现；
-- 1–2 字查询走全表扫描，几十万块以上会明显变慢；
-- 只读文件内容，不索引批注、修订记录、页眉页脚。
+- No OCR: scanned PDFs yield nothing.
+- Literal search, not semantic — "tower" will not find "pole" unless both appear.
+- 1–2 character queries scan the table; slow past a few hundred thousand blocks.
+- Indexes body text only: no comments, tracked changes, headers or footers.
 
 ## License
 
