@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -268,6 +269,61 @@ class TestWatch(Base):
         thread.join()
         self.assertEqual(errors, [])
         self.assertTrue(reader.search("风荷载", limit=20))
+
+
+class TestBootstrap(Base):
+    def test_default_roots_only_existing(self):
+        from officegrep.bootstrap import default_roots
+
+        home = self.root / "home"
+        (home / "Documents").mkdir(parents=True)
+        (home / "Desktop").mkdir()
+        roots = default_roots(home)
+        self.assertEqual({p.name for p in roots}, {"Documents", "Desktop"})
+
+    def test_autoindex_flag(self):
+        from officegrep.bootstrap import autoindex_enabled
+
+        os.environ["OFFICEGREP_AUTOINDEX"] = "0"
+        self.addCleanup(os.environ.pop, "OFFICEGREP_AUTOINDEX", None)
+        self.assertFalse(autoindex_enabled())
+        os.environ["OFFICEGREP_AUTOINDEX"] = "1"
+        self.assertTrue(autoindex_enabled())
+
+    def test_bootstrap_skips_large_files(self):
+        from officegrep.bootstrap import bootstrap
+
+        small = self.root / "小.md"
+        small.write_text("包含 弯矩 的小文件", encoding="utf-8")
+        big = self.root / "大.md"
+        big.write_text("x" * 5000, encoding="utf-8")
+
+        with Index(self.root / "b.db") as index:
+            stats = bootstrap(index, [self.root], max_bytes=1000)
+            self.assertEqual(stats["indexed"], 1)
+            self.assertFalse(index.search("xxxx"))  # 大文件被跳过
+
+    def test_background_bootstrap(self):
+        from officegrep import bootstrap
+
+        self.make_txt("自动.md")
+        thread = bootstrap.start(self.root / "bg.db", [self.root], on_done=lambda s: None)
+        thread.join(timeout=30)
+        state = bootstrap.status()
+        self.assertFalse(state["running"])
+        self.assertTrue(state["done"])
+        self.assertEqual(state["indexed"], 1)
+        with Index(self.root / "bg.db") as index:
+            self.assertTrue(index.search("挠度"))
+
+    def test_hint_while_building(self):
+        from officegrep import bootstrap
+
+        bootstrap._state.update({"running": True, "roots": ["/tmp/x"], "indexed": 3})
+        self.addCleanup(bootstrap._state.update, {"running": False})
+        self.assertIn("正在后台建立", bootstrap.hint_if_building())
+        bootstrap._state.update({"running": False})
+        self.assertEqual(bootstrap.hint_if_building(), "")
 
 
 class TestCli(Base):

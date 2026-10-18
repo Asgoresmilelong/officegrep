@@ -54,6 +54,13 @@ officegrep stats
 
 The index lives in `~/.officegrep/index.db`; override with `--db` or `OFFICEGREP_DB`.
 
+## First run
+
+Nothing to do. If the index is empty when `officegrep mcp` starts, it scans `~/Documents`, `~/Downloads` and `~/Desktop` in the background (25 MB per-file cap) while the agent keeps talking; a `search_docs` call made in the meantime answers with a "still building" note instead of a misleading "no results".
+
+- opt out: `OFFICEGREP_AUTOINDEX=0`
+- scan other folders: `OFFICEGREP_ROOTS="~/work;~/papers"`
+
 ## Stay in sync
 
 ```bash

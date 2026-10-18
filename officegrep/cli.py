@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .bootstrap import autoindex_enabled, default_roots
+from .bootstrap import start as start_bootstrap
 from .index import Index
 from .mcp import Server
 from .watch import Watcher, parse_roots
@@ -100,6 +102,21 @@ def cmd_mcp(index: Index, _args) -> int:
     if roots:
         Watcher(index, roots).start_background()
         print(f"watch: {', '.join(roots)}", file=sys.stderr)
+
+    # 首次使用：索引为空就后台扫默认目录，让「装完就能搜」成立
+    if autoindex_enabled() and index.stats()["files"] == 0:
+        scan_roots = parse_roots(os.environ.get("OFFICEGREP_ROOTS")) or default_roots()
+        if scan_roots:
+            print(f"autoindex: 索引为空，后台扫描 {', '.join(str(r) for r in scan_roots)}", file=sys.stderr)
+            start_bootstrap(
+                index.db_path,
+                scan_roots,
+                on_file=lambda path, note: print(f"  {path}  {note}", file=sys.stderr),
+                on_done=lambda stats: print(
+                    f"autoindex 完成：{stats['indexed']} 个文件、{stats['blocks']} 个文本块", file=sys.stderr
+                ),
+            )
+
     print(f"officegrep MCP server · db={index.db_path}", file=sys.stderr)
     Server(index).serve()
     return 0

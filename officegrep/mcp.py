@@ -10,6 +10,7 @@ import json
 import sys
 from pathlib import Path
 
+from .bootstrap import hint_if_building
 from .index import Index
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -74,7 +75,7 @@ class Server:
         limit = int(args.get("limit") or 10)
         hits = self.index.search(query, limit=min(limit, 50), under=args.get("folder"))
         if not hits:
-            return _text_result(f"没有找到包含「{query}」的内容。")
+            return _text_result(f"没有找到包含「{query}」的内容。{hint_if_building()}")
         lines = [f"找到 {len(hits)} 条（query={query}）："]
         for hit in hits:
             lines.append(f"\n{hit.path}  [{hit.loc}]\n  {hit.snippet}")
@@ -83,7 +84,7 @@ class Server:
     def _tool_list(self, args: dict) -> dict:
         rows = self.index.list_files(under=args.get("folder"))
         if not rows:
-            return _text_result("索引为空，先用 index_folder 建索引。")
+            return _text_result(f"索引为空，先用 index_folder 建索引。{hint_if_building()}")
         lines = [f"共 {len(rows)} 个文件："]
         lines += [f"{path}  ({blocks} blocks)" for path, blocks in rows]
         return _text_result("\n".join(lines))

@@ -11,5 +11,5 @@ from __future__ import annotations
 from .extract import SUPPORTED, Block, extract
 from .index import Hit, Index
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __all__ = ["Index", "Hit", "Block", "extract", "SUPPORTED", "__version__"]
