@@ -32,12 +32,16 @@ F:\notes\composites.md  [line 32]
 ## Install
 
 ```bash
+# one command, no clone, no uv
+pip install https://github.com/Asgoresmilelong/officegrep/releases/download/v0.1.1/officegrep-0.1.1-py3-none-any.whl
+
+# or from source
 pip install git+https://github.com/Asgoresmilelong/officegrep
-# optional PDF support
-pip install "officegrep[pdf] @ git+https://github.com/Asgoresmilelong/officegrep"
 ```
 
-Runtime deps: `lxml`, `openpyxl`. PDF needs optional `pypdf`.
+Runtime deps: `lxml`, `openpyxl`; PDF support adds optional `pypdf`.
+
+Listed in the official [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.Asgoresmilelong/officegrep`; there is also an `.mcpb` bundle on the [releases page](https://github.com/Asgoresmilelong/officegrep/releases) for MCP hosts that install bundles (needs `uv`).
 
 ## CLI
 
