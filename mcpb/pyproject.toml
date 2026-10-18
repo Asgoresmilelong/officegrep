@@ -1,0 +1,6 @@
+[project]
+name = "officegrep-bundle"
+version = "0.1.1"
+description = "officegrep bundled for MCP hosts"
+requires-python = ">=3.9"
+dependencies = ["lxml>=4.9", "openpyxl>=3.1", "pypdf>=4.0"]
