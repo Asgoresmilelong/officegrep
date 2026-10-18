@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "officegrep"
+version = "0.1.0"
+description = "本地文档全文检索：让 agent 搜进 Word / PPT / Excel / PDF（MCP 服务器）"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["mcp", "search", "docx", "xlsx", "pptx", "pdf", "sqlite", "fts5", "agent"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = ["lxml>=4.9", "openpyxl>=3.1"]
+
+[project.optional-dependencies]
+pdf = ["pypdf>=4.0"]
+dev = ["python-docx>=1.1", "python-pptx>=0.6", "pypdf>=4.0"]
+
+[project.scripts]
+officegrep = "officegrep.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["officegrep*"]
